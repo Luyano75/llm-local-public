@@ -67,6 +67,3 @@ python3 test_ollama.py
 - **SSH Access**: It is recommended to use SSH keys rather than passwords for Ansible authentication.
 - **IPv6**: These playbooks disable IPv6 system-wide for network stability in certain environments. Remove these tasks from `provision.yml` if IPv6 is required.
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
