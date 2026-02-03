@@ -1,0 +1,83 @@
+---
+- name: Provision LLM Server
+  hosts: llm_server
+  become: true
+  tasks:
+    - name: 1. Update APT package cache and upgrade all packages
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: 2. Install common dependencies
+      ansible.builtin.apt:
+        name:
+          - build-essential
+          - python3-pip
+          - vim
+          - curl
+          - git
+        state: present
+
+    - name: 3. Add Docker's official GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+        force: true
+
+    - name: 4. Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: 5. Install Docker Engine
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: 6. Add ansible_user to the 'docker' group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: 7. Prioritize IPv4 over IPv6 for network stability
+      ansible.builtin.lineinfile:
+        path: /etc/gai.conf
+        regexp: '^#\s*precedence ::ffff:0:0/96\s+100'
+        line: 'precedence ::ffff:0:0/96  100'
+        backrefs: yes
+
+    - name: 8. Ensure systemd-resolved custom config directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: '0755'
+
+    - name: 9. Create sysctl config to disable IPv6 system-wide
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-disable-ipv6.conf
+        content: |
+          net.ipv6.conf.all.disable_ipv6 = 1
+          net.ipv6.conf.default.disable_ipv6 = 1
+          net.ipv6.conf.lo.disable_ipv6 = 1
+        mode: '0644'
+
+    - name: 10. Apply sysctl settings immediately
+      ansible.builtin.command:
+        cmd: sysctl -p
+      changed_when: false
+
+  handlers:
+    - name: Restart systemd-resolved
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        state: restarted

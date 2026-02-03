@@ -1,0 +1,37 @@
+---
+- name: Install and configure Ollama LLM Agent
+  hosts: llm_server
+  become: true
+  tasks:
+    - name: 1. Download and execute the Ollama installation script
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://ollama.com/install.sh | sh
+        creates: /usr/local/bin/ollama
+
+    - name: 2. Create a systemd override directory for Ollama
+      ansible.builtin.file:
+        path: /etc/systemd/system/ollama.service.d
+        state: directory
+        mode: '0755'
+
+    - name: 3. Configure Ollama to listen on all interfaces
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ollama.service.d/override.conf
+        content: |
+          [Service]
+          Environment="OLLAMA_HOST=0.0.0.0"
+        mode: '0644'
+      notify: Restart Ollama Service
+
+    - name: 4. Ensure the Ollama service is started and enabled on boot
+      ansible.builtin.systemd:
+        name: ollama
+        state: started
+        enabled: yes
+        daemon_reload: yes # Important after changing service files
+
+  handlers:
+    - name: Restart Ollama Service
+      ansible.builtin.systemd:
+        name: ollama
+        state: restarted

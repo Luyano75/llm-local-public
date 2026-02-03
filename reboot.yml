@@ -1,0 +1,9 @@
+---
+- name: Reboot server and wait for it to come back
+  hosts: llm_server
+  become: true
+  tasks:
+    - name: Reboot the machine
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+    
